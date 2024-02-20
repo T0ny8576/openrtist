@@ -8,8 +8,9 @@ RUN apt-get update && apt-get install -y curl
 RUN echo "deb http://ppa.launchpad.net/intel-opencl/intel-opencl/ubuntu bionic main" >> /etc/apt/sources.list \
  && echo "deb https://apt.repos.intel.com/openvino/2019/ all main" >> /etc/apt/sources.list \
  && curl https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS-2019.PUB | apt-key add - \
- && apt-key adv --keyserver keyserver.ubuntu.com --recv-keys B9732172C4830B8F \
- && apt-get update && apt-get install -y \
+# && apt-key adv --keyserver keyserver.ubuntu.com --recv-keys B9732172C4830B8F \
+# && apt-get update && apt-get install -y \
+&& apt-get update --allow-insecure-repositories --allow-unauthenticated && apt-get install -y --allow-unauthenticated \
     build-essential \
     clinfo \
     intel-opencl-icd \
@@ -30,11 +31,11 @@ RUN mv /usr/local/cuda-11.8/targets/x86_64-linux/lib/libOpenCL.so.1 \
        /usr/local/cuda-11.8/targets/x86_64-linux/lib/libOpenCL.so.1.bak
 
 # Install PyTorch and Gabriel's external dependencies
-COPY python-client/requirements.txt client-requirements.txt
+# COPY python-client/requirements.txt client-requirements.txt
 COPY server/requirements.txt server-requirements.txt
 RUN python3.7 -m pip install --upgrade pip \
  && python3.7 -m pip install --no-cache-dir \
-    -r client-requirements.txt \
+#    -r client-requirements.txt \
     -r server-requirements.txt
 
 # You can speed up build slightly by reducing build context with
@@ -43,4 +44,4 @@ COPY . openrtist
 WORKDIR openrtist/server
 
 EXPOSE 5555 9099
-ENTRYPOINT ["./entrypoint.sh"]
+# ENTRYPOINT ["./entrypoint.sh"]
