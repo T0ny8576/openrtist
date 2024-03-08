@@ -1,14 +1,17 @@
 package edu.cmu.cs.gabriel.network;
 
 import android.app.Application;
+import android.util.Log;
 import android.widget.ImageView;
 
 import com.google.protobuf.ByteString;
 
+import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 import edu.cmu.cs.gabriel.Const;
+import edu.cmu.cs.gabriel.client.results.SendSupplierResult;
 import edu.cmu.cs.openrtist.GabrielClientActivity;
 import edu.cmu.cs.gabriel.client.comm.ServerComm;
 import edu.cmu.cs.gabriel.protocol.Protos.InputFrame;
@@ -17,6 +20,7 @@ import edu.cmu.cs.gabriel.protocol.Protos.ResultWrapper;
 public class OpenrtistComm {
     private final ServerComm serverComm;
     private final ErrorConsumer onDisconnect;
+    private int inputFrameCount = 0;
 
     public static OpenrtistComm createOpenrtistComm(
             String endpoint, int port, GabrielClientActivity gabrielClientActivity,
@@ -43,12 +47,23 @@ public class OpenrtistComm {
         this.onDisconnect = onDisconnect;
     }
 
-    public void sendSupplier(Supplier<InputFrame> supplier) {
+    public void sendSupplier(Supplier<InputFrame> supplier, ConcurrentLinkedDeque<String> logList, String frameLogString) {
         if (!this.serverComm.isRunning()) {
             return;
         }
-
-        this.serverComm.sendSupplier(supplier, Const.SOURCE_NAME, /* wait */ false);
+        if (inputFrameCount > 1000) {
+            Log.w("PROFILE1", "Done 1000.\n");
+            return;
+        }
+        SendSupplierResult result = this.serverComm.sendSupplier(supplier, Const.SOURCE_NAME, /* wait */ false);
+        if (result == SendSupplierResult.SUCCESS) {
+            inputFrameCount++;
+            String frameSentString = inputFrameCount + frameLogString + inputFrameCount + "\tClient Send\t" +
+                    GabrielClientActivity.getNetworkTimeString() + "\n";
+            logList.add(frameSentString);
+        } else {
+            logList.add("Failed to sendSupplier: frame " + (inputFrameCount + 1) + " at" + frameLogString);
+        }
     }
 
     public void stop() {

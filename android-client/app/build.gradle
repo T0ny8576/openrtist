@@ -43,7 +43,7 @@ android {
         }
     }
 
-    compileSdkVersion 29
+    compileSdkVersion 33
 
     defaultConfig {
         applicationId "edu.cmu.cs.openrtist"

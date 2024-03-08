@@ -26,6 +26,7 @@ import android.media.MediaRecorder;
 import android.media.projection.MediaProjection;
 import android.media.projection.MediaProjectionManager;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
@@ -62,6 +63,7 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.URI;
@@ -73,6 +75,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.function.Consumer;
 
 import edu.cmu.cs.gabriel.Const;
@@ -158,6 +161,11 @@ public class GabrielClientActivity extends AppCompatActivity implements
     private volatile boolean localRunnerBusy = false;
     private RenderScript rs = null;
     private Bitmap bitmapCache;
+
+    private FileWriter logFileWriter;
+    private final SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss-z", Locale.US);
+    private final String LOGFILE = "Client-Timing-" + sdf.format(new Date()) + ".txt";
+    public final ConcurrentLinkedDeque<String> logList = new ConcurrentLinkedDeque<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -338,6 +346,15 @@ public class GabrielClientActivity extends AppCompatActivity implements
             );
             rs = RenderScript.create(this);
         }
+
+        File logFile = new File(getExternalFilesDir(null), LOGFILE);
+        logFile.delete();
+        logFile = new File(getExternalFilesDir(null), LOGFILE);
+        try {
+            logFileWriter = new FileWriter(logFile, true);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     public void addFrameProcessed() {
@@ -433,6 +450,16 @@ public class GabrielClientActivity extends AppCompatActivity implements
         }
     };
 
+    private void writeLog() {
+        try {
+            for (String logString: logList) {
+                logFileWriter.write(logString);
+            }
+            logFileWriter.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
 
     @Override
     protected void onResume() {
@@ -450,6 +477,7 @@ public class GabrielClientActivity extends AppCompatActivity implements
         super.onPause();
         Log.v(LOG_TAG, "++onPause");
 
+        writeLog();
         if(iterationHandler != null) {
             iterationHandler.removeCallbacks(styleIterator);
         }
@@ -708,7 +736,7 @@ public class GabrielClientActivity extends AppCompatActivity implements
         });
     }
 
-    private void sendFrameCloudlet(@NonNull ImageProxy image) {
+    private void sendFrameCloudlet(@NonNull ImageProxy image, String frameLogString) {
         openrtistComm.sendSupplier(() -> {
             Extras extras = Extras.newBuilder().setStyle(styleType).build();
 
@@ -717,7 +745,14 @@ public class GabrielClientActivity extends AppCompatActivity implements
                     .addPayloads(yuvToJPEGConverter.convert(image))
                     .setExtras(GabrielClientActivity.pack(extras))
                     .build();
-        });
+        }, this.logList, frameLogString);
+    }
+
+    public static String getNetworkTimeString() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            return String.valueOf(SystemClock.currentNetworkTimeClock().millis());
+        }
+        return System.currentTimeMillis() + " WARNING_MAY_NOT_USE_NETWORK_TIME_CLOCK";
     }
 
     final private ImageAnalysis.Analyzer analyzer = new ImageAnalysis.Analyzer() {
@@ -730,7 +765,8 @@ public class GabrielClientActivity extends AppCompatActivity implements
                         localExecution(image);
                     }
                 } else if (GabrielClientActivity.this.openrtistComm != null) {
-                    sendFrameCloudlet(image);
+                    String frameLogString = "\tClient Gen \t" + GabrielClientActivity.getNetworkTimeString() + "\n";
+                    sendFrameCloudlet(image, frameLogString);
                 }
                 if (Const.STEREO_ENABLED) {
                     runOnUiThread(() -> {

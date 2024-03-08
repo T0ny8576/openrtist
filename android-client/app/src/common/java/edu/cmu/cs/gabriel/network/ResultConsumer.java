@@ -22,6 +22,7 @@ public class ResultConsumer implements Consumer<ResultWrapper> {
     private final ImageViewUpdater referenceViewUpdater;
     private final Consumer<ByteString> imageViewUpdater;
     private final GabrielClientActivity gabrielClientActivity;
+    private int receivedFrameCount = 0;
 
     public ResultConsumer(
             ImageView referenceView, Consumer<ByteString> imageViewUpdater,
@@ -39,6 +40,8 @@ public class ResultConsumer implements Consumer<ResultWrapper> {
         }
 
         ResultWrapper.Result result = resultWrapper.getResults(0);
+        boolean received = false;
+        String frameRecvString = "";
         try {
             Extras extras = Extras.parseFrom(resultWrapper.getExtras().getValue());
             if (Const.DISPLAY_REFERENCE && extras.hasStyleImage()) {
@@ -46,11 +49,14 @@ public class ResultConsumer implements Consumer<ResultWrapper> {
                     this.referenceViewUpdater.accept(extras.getStyleImage().getValue());
                 }
             }
+            receivedFrameCount++;
+            frameRecvString = receivedFrameCount + "\tClient Recv\t" + GabrielClientActivity.getNetworkTimeString() + "\n";
 
             if (!Const.STYLES_RETRIEVED && (extras.getStyleListCount() > 0)) {
                 Const.STYLES_RETRIEVED = true;
                 this.gabrielClientActivity.addStyles(new TreeMap<String, String>(extras.getStyleListMap()).entrySet());
             }
+            received = true;
         }  catch (InvalidProtocolBufferException e) {
             Log.e(TAG, "Protobuf Error", e);
         }
@@ -62,6 +68,9 @@ public class ResultConsumer implements Consumer<ResultWrapper> {
 
         this.imageViewUpdater.accept(result.getPayload());
         this.gabrielClientActivity.addFrameProcessed();
+        if (received) {
+            frameRecvString = frameRecvString +  receivedFrameCount + "\tClient Done\t" + GabrielClientActivity.getNetworkTimeString() + "\n";
+            this.gabrielClientActivity.logList.add(frameRecvString);
+        }
     }
 }
-
