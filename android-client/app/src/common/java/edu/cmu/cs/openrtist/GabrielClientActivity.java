@@ -76,6 +76,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 
 import edu.cmu.cs.gabriel.Const;
@@ -86,6 +88,7 @@ import edu.cmu.cs.gabriel.camera.YuvToJPEGConverter;
 import edu.cmu.cs.gabriel.client.comm.ServerComm;
 import edu.cmu.cs.gabriel.client.results.ErrorType;
 import edu.cmu.cs.gabriel.network.OpenrtistComm;
+import edu.cmu.cs.gabriel.network.SntpClient;
 import edu.cmu.cs.gabriel.network.StereoViewUpdater;
 import edu.cmu.cs.gabriel.protocol.Protos.InputFrame;
 import edu.cmu.cs.gabriel.protocol.Protos.PayloadType;
@@ -166,6 +169,21 @@ public class GabrielClientActivity extends AppCompatActivity implements
     private final SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss-z", Locale.US);
     private final String LOGFILE = "Client-Timing-" + sdf.format(new Date()) + ".txt";
     public final ConcurrentLinkedDeque<String> logList = new ConcurrentLinkedDeque<>();
+    public SntpClient sntpClient;
+    public boolean ntpReceived = false;
+
+    private class NtpSyncTask implements Runnable {
+        @Override
+        public void run() {
+            // TODO: Re-sync once after a while
+            while (!sntpClient.requestTime("labgw.elijah.cs.cmu.edu", 5000)) {
+                Log.w(LOG_TAG, "Failed to connect to labgw. Retrying...");
+            }
+            Log.w(LOG_TAG, "Success! Connected to labgw. RTT = " + sntpClient.getRoundTripTime() +
+                    ", Offset = " + sntpClient.getClockOffset());
+            ntpReceived = true;
+        }
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -346,6 +364,11 @@ public class GabrielClientActivity extends AppCompatActivity implements
             );
             rs = RenderScript.create(this);
         }
+
+        sntpClient = new SntpClient();
+        NtpSyncTask ntpSyncTask = new NtpSyncTask();
+        ExecutorService threadExecutor = Executors.newSingleThreadExecutor();
+        threadExecutor.submit(ntpSyncTask);
 
         File logFile = new File(getExternalFilesDir(null), LOGFILE);
         logFile.delete();
@@ -745,10 +768,14 @@ public class GabrielClientActivity extends AppCompatActivity implements
                     .addPayloads(yuvToJPEGConverter.convert(image))
                     .setExtras(GabrielClientActivity.pack(extras))
                     .build();
-        }, this.logList, frameLogString);
+        }, frameLogString, this);
     }
 
-    public static String getNetworkTimeString() {
+    public String getNetworkTimeString() {
+        if (ntpReceived) {
+            long ntpNow = sntpClient.getNtpTime() + SystemClock.elapsedRealtime() - sntpClient.getNtpTimeReference();
+            return String.valueOf(ntpNow);
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             return String.valueOf(SystemClock.currentNetworkTimeClock().millis());
         }
@@ -765,7 +792,7 @@ public class GabrielClientActivity extends AppCompatActivity implements
                         localExecution(image);
                     }
                 } else if (GabrielClientActivity.this.openrtistComm != null) {
-                    String frameLogString = "\tClient Gen \t" + GabrielClientActivity.getNetworkTimeString() + "\n";
+                    String frameLogString = "\tClient Gen \t" + getNetworkTimeString() + "\n";
                     sendFrameCloudlet(image, frameLogString);
                 }
                 if (Const.STEREO_ENABLED) {

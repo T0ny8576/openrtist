@@ -50,7 +50,7 @@ public class ResultConsumer implements Consumer<ResultWrapper> {
                 }
             }
             receivedFrameCount++;
-            frameRecvString = receivedFrameCount + "\tClient Recv\t" + GabrielClientActivity.getNetworkTimeString() + "\n";
+            frameRecvString = receivedFrameCount + "\tClient Recv\t" + gabrielClientActivity.getNetworkTimeString() + "\n";
 
             if (!Const.STYLES_RETRIEVED && (extras.getStyleListCount() > 0)) {
                 Const.STYLES_RETRIEVED = true;
@@ -69,7 +69,7 @@ public class ResultConsumer implements Consumer<ResultWrapper> {
         this.imageViewUpdater.accept(result.getPayload());
         this.gabrielClientActivity.addFrameProcessed();
         if (received) {
-            frameRecvString = frameRecvString +  receivedFrameCount + "\tClient Done\t" + GabrielClientActivity.getNetworkTimeString() + "\n";
+            frameRecvString = frameRecvString +  receivedFrameCount + "\tClient Done\t" + gabrielClientActivity.getNetworkTimeString() + "\n";
             this.gabrielClientActivity.logList.add(frameRecvString);
         }
     }

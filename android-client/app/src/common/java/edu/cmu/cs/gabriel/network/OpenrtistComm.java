@@ -47,7 +47,7 @@ public class OpenrtistComm {
         this.onDisconnect = onDisconnect;
     }
 
-    public void sendSupplier(Supplier<InputFrame> supplier, ConcurrentLinkedDeque<String> logList, String frameLogString) {
+    public void sendSupplier(Supplier<InputFrame> supplier, String frameLogString, GabrielClientActivity gabrielClientActivity) {
         if (!this.serverComm.isRunning()) {
             return;
         }
@@ -59,10 +59,10 @@ public class OpenrtistComm {
         if (result == SendSupplierResult.SUCCESS) {
             inputFrameCount++;
             String frameSentString = inputFrameCount + frameLogString + inputFrameCount + "\tClient Send\t" +
-                    GabrielClientActivity.getNetworkTimeString() + "\n";
-            logList.add(frameSentString);
+                    gabrielClientActivity.getNetworkTimeString() + "\n";
+            gabrielClientActivity.logList.add(frameSentString);
         } else {
-            logList.add("Failed to sendSupplier: frame " + (inputFrameCount + 1) + " at" + frameLogString);
+            gabrielClientActivity.logList.add("Failed to sendSupplier: frame " + (inputFrameCount + 1) + " at" + frameLogString);
         }
     }
 
