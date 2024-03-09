@@ -6,6 +6,7 @@ BASEDIR = os.path.dirname(os.path.abspath(__file__))
 LOGDIR = os.path.join(BASEDIR, "logs/")
 CLIENT_LOG = os.path.join(LOGDIR, "Client-Timing-2024-02-07-16-32-27-EST.txt")
 SERVER_LOG = os.path.join(LOGDIR, "log-1707346074.txt")
+NUM_FRAME_DISCARDED = 4
 
 
 def plot_histogram(data, xlabel, ylabel, fname, bins=40, dpi=300, x_range=None):
@@ -50,25 +51,25 @@ if __name__ == "__main__":
         client_lines = client_log.readlines()
         for cl in client_lines:
             cls = cl.split()
-            if cls[0] == "1" or cls[0] == "2":
+            if cls[0] in [str(i + 1) for i in range(NUM_FRAME_DISCARDED)]:
                 continue
             if "Gen" in cl and "Failed" not in cl:
-                client_gen[int(cls[0]) - 3] = int(cls[-1])
+                client_gen[int(cls[0]) - NUM_FRAME_DISCARDED - 1] = int(cls[-1])
             elif "Send" in cl:
-                client_send[int(cls[0]) - 3] = int(cls[-1])
+                client_send[int(cls[0]) - NUM_FRAME_DISCARDED - 1] = int(cls[-1])
             elif "Recv" in cl:
-                client_recv[int(cls[0]) - 3] = int(cls[-1])
+                client_recv[int(cls[0]) - NUM_FRAME_DISCARDED - 1] = int(cls[-1])
             elif "Done" in cl:
-                client_done[int(cls[0]) - 3] = int(cls[-1])
+                client_done[int(cls[0]) - NUM_FRAME_DISCARDED - 1] = int(cls[-1])
 
     with open(SERVER_LOG, "r") as server_log:
         server_lines = server_log.readlines()
         for sl in server_lines:
             if len(sl.strip()) > 0:
                 sls = sl.split(", ")
-                if sls[0] == "#1" or sls[0] == "#2":
+                if sls[0] in ["#" + str(i + 1) for i in range(NUM_FRAME_DISCARDED)]:
                     continue
-                idx = int(sls[0].replace("#", "")) - 3
+                idx = int(sls[0].replace("#", "")) - NUM_FRAME_DISCARDED - 1
                 server_recv[idx] = float(sls[1].replace("time = ", "")) * 1000
                 server_done[idx] = float(sls[2].replace("done = ", "")) * 1000
                 server_pre[idx] = float(sls[3].replace("pre = ", "").replace(" ms", ""))
