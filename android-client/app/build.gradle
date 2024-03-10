@@ -62,17 +62,17 @@ android {
     productFlavors {
         standard {
             isDefault = true
-            minSdkVersion 24
+            minSdkVersion 26
         }
         measurement {
-            minSdkVersion 24
+            minSdkVersion 26
         }
 
         if (artifactory_user != null) {
             mobilEdgeX {
                 apply plugin: 'com.jfrog.artifactory'
 
-                minSdkVersion 24
+                minSdkVersion 26
                 repositories {
                     maven {
                         credentials {
@@ -90,7 +90,7 @@ android {
             dimension 'version'
             applicationIdSuffix 'ar'
             versionNameSuffix '-ar'
-            minSdkVersion 24
+            minSdkVersion 26
             multiDexEnabled true
         }
 

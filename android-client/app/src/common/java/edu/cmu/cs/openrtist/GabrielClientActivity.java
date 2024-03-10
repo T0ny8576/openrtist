@@ -62,7 +62,6 @@ import androidx.camera.view.PreviewView;
 
 import com.google.protobuf.Any;
 import com.google.protobuf.ByteString;
-import com.google.protobuf.InvalidProtocolBufferException;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -82,8 +81,6 @@ import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.ConcurrentLinkedDeque;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 
 import edu.cmu.cs.gabriel.Const;
@@ -91,8 +88,6 @@ import edu.cmu.cs.gabriel.camera.CameraCapture;
 import edu.cmu.cs.gabriel.camera.ImageViewUpdater;
 import edu.cmu.cs.gabriel.camera.YuvToNV21Converter;
 import edu.cmu.cs.gabriel.camera.YuvToJPEGConverter;
-import edu.cmu.cs.gabriel.client.comm.ServerComm;
-import edu.cmu.cs.gabriel.client.results.ErrorType;
 import edu.cmu.cs.gabriel.network.OpenrtistComm;
 import edu.cmu.cs.gabriel.network.SntpClient;
 import edu.cmu.cs.gabriel.network.StereoViewUpdater;
@@ -102,7 +97,6 @@ import edu.cmu.cs.gabriel.util.Screenshot;
 import edu.cmu.cs.localtransfer.LocalTransfer;
 import edu.cmu.cs.localtransfer.Utils;
 import edu.cmu.cs.openrtist.Protos.Extras;
-import edu.cmu.cs.openrtist.R;
 
 public class GabrielClientActivity extends AppCompatActivity implements
         AdapterView.OnItemSelectedListener {
@@ -114,8 +108,12 @@ public class GabrielClientActivity extends AppCompatActivity implements
     private static final int MEDIA_TYPE_VIDEO = 2;
     private static final int APP_NETWORK_TRANSPORT_TYPE = NetworkCapabilities.TRANSPORT_CELLULAR;
     private static final int NTP_NETWORK_TRANSPORT_TYPE = NetworkCapabilities.TRANSPORT_WIFI;
-    public Network ntpNetwork;
-    private static final long NTP_POLLING_INTERVAL = 2000;
+    private Timer ntpTimer;
+    private Network ntpNetwork;
+    private static final long NTP_POLLING_INTERVAL = 500;
+    private static final long NTP_RTT_TOLERANCE = 10;
+    private long minNtpRtt = NTP_POLLING_INTERVAL;
+    private long lastNtpOffset;
 
     // major components for streaming sensor data and receiving information
     String serverIP = null;
@@ -186,18 +184,26 @@ public class GabrielClientActivity extends AppCompatActivity implements
     private class NtpTimerTask extends TimerTask {
         @Override
         public void run() {
-//            if (!sntpClient.requestTime("labgw.elijah.cs.cmu.edu", 5000, ntpNetwork)) {
-            if (!sntpClient.requestTime("ec2-54-197-201-248.compute-1.amazonaws.com", 5000, ntpNetwork)) {
+            if (!sntpClient.requestTime("labgw.elijah.cs.cmu.edu", 5000, ntpNetwork)) {
+//            if (!sntpClient.requestTime("ec2-54-197-201-248.compute-1.amazonaws.com", 5000, ntpNetwork)) {
 //            if (!sntpClient.requestTime("time.cloudflare.com", 5000, ntpNetwork)) {
-                    Log.w(LOG_TAG, "Failed to connect to NTP server. Retrying...");
+                Log.w(LOG_TAG, "Failed to request time from NTP server");
+            } else {
+                long rtt = sntpClient.getRoundTripTime();
+                if (rtt < minNtpRtt + NTP_RTT_TOLERANCE) {
+                    lastNtpOffset = sntpClient.getNtpTime() - sntpClient.getNtpTimeReference();
+                    ntpReceived = true;
+                    Log.w(LOG_TAG, "Time update from NTP server using " +
+                            connectivityManager.getNetworkInfo(ntpNetwork).getTypeName() +
+                            ". RTT = " + sntpClient.getRoundTripTime() +
+                            ", Offset = " + sntpClient.getClockOffset());
+                    if (rtt < minNtpRtt) {
+                        minNtpRtt = rtt;
+                    }
                 }
-                Log.w(LOG_TAG, "Success! Connected to NTP server using " +
-                        connectivityManager.getNetworkInfo(ntpNetwork).getTypeName() +
-                        ". RTT = " + sntpClient.getRoundTripTime() +
-                        ", Offset = " + sntpClient.getClockOffset());
-                ntpReceived = true;
             }
         }
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -510,6 +516,7 @@ public class GabrielClientActivity extends AppCompatActivity implements
         Log.v(LOG_TAG, "++onPause");
 
         writeLog();
+        ntpTimer.cancel();
         if(iterationHandler != null) {
             iterationHandler.removeCallbacks(styleIterator);
         }
@@ -799,7 +806,7 @@ public class GabrielClientActivity extends AppCompatActivity implements
 
     public String getNetworkTimeString() {
         if (ntpReceived) {
-            long ntpNow = sntpClient.getNtpTime() + SystemClock.elapsedRealtime() - sntpClient.getNtpTimeReference();
+            long ntpNow = SystemClock.elapsedRealtime() + lastNtpOffset;
             return String.valueOf(ntpNow);
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -869,8 +876,8 @@ public class GabrielClientActivity extends AppCompatActivity implements
                 // Time synchronization using SNTP
                 ntpNetwork = network;
                 sntpClient = new SntpClient();
-                Timer timer = new Timer();
-                timer.scheduleAtFixedRate(new NtpTimerTask(), 0, NTP_POLLING_INTERVAL);
+                ntpTimer = new Timer();
+                ntpTimer.scheduleAtFixedRate(new NtpTimerTask(), 0, NTP_POLLING_INTERVAL);
             }
         };
         connectivityManager.requestNetwork(ntpNetworkRequest, ntpNetworkCallback);

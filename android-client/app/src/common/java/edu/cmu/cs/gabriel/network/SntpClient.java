@@ -22,7 +22,15 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.util.Arrays;
+
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Objects;
+import java.util.Random;
+import java.util.function.Supplier;
+
 
 /**
  * Simple, single-use SNTP client class for retrieving network time.
@@ -50,13 +58,14 @@ public class SntpClient {
     private static final int NTP_MODE_CLIENT = 3;
     private static final int NTP_MODE_SERVER = 4;
     private static final int NTP_MODE_BROADCAST = 5;
-    private static final int NTP_VERSION = 3;
+    private static final int NTP_VERSION = 1; // Use 1 instead of 3, as recommended by RFC1769
     private static final int NTP_LEAP_NOSYNC = 3;
     private static final int NTP_STRATUM_DEATH = 0;
     private static final int NTP_STRATUM_MAX = 15;
-    // Number of seconds between Jan 1, 1900 and Jan 1, 1970
-    // 70 years plus 17 leap days
-    private static final long OFFSET_1900_TO_1970 = ((365L * 70L) + 17L) * 24L * 60L * 60L;
+
+    // The source of the current system clock time, replaceable for testing.
+    private final Supplier<Instant> mSystemTimeSupplier;
+    private final Random mRandom;
     // The last offset calculated from an NTP server response
     private long mClockOffset;
     // The last system time computed from an NTP server response
@@ -70,6 +79,15 @@ public class SntpClient {
         public InvalidServerReplyException(String message) {
             super(message);
         }
+    }
+
+    public SntpClient() {
+        this(Instant::now, defaultRandom());
+    }
+
+    public SntpClient(Supplier<Instant> systemTimeSupplier, Random random) {
+        mSystemTimeSupplier = Objects.requireNonNull(systemTimeSupplier);
+        mRandom = Objects.requireNonNull(random);
     }
 
     /**
@@ -92,47 +110,49 @@ public class SntpClient {
             socket.setSoTimeout(timeout);
             byte[] buffer = new byte[NTP_PACKET_SIZE];
             DatagramPacket request = new DatagramPacket(buffer, buffer.length, address, STANDARD_NTP_PORT);
-            // set mode = 3 (client) and version = 3
+            // set mode = 3 (client) and version = 1
             // mode is in low 3 bits of first byte
             // version is in bits 3-5 of first byte
             buffer[0] = NTP_MODE_CLIENT | (NTP_VERSION << 3);
             // get current time and write it to the request packet
-            final long requestTime = System.currentTimeMillis();
-            // TODO: randomizedRequestTime
-            // TODO: Use elapsedRealtimeNanos()? Checkout Timestamp64 Class
+            final Instant requestTime = mSystemTimeSupplier.get();
+            final Timestamp64 requestTimestamp = Timestamp64.fromInstant(requestTime);
+            final Timestamp64 randomizedRequestTimestamp =
+                    requestTimestamp.randomizeSubMillis(mRandom);
             final long requestTicks = SystemClock.elapsedRealtime();
-            writeTimeStamp(buffer, TRANSMIT_TIME_OFFSET, requestTime);
+            writeTimeStamp(buffer, TRANSMIT_TIME_OFFSET, randomizedRequestTimestamp);  // TODO: We don't even need this
             socket.send(request);
             // read the response
             DatagramPacket response = new DatagramPacket(buffer, buffer.length);
             socket.receive(response);
             final long responseTicks = SystemClock.elapsedRealtime();
-            final long responseTime = requestTime + (responseTicks - requestTicks);
+            final Instant responseTime = requestTime.plusMillis(responseTicks - requestTicks);
+            final Timestamp64 responseTimestamp = Timestamp64.fromInstant(responseTime);
             // extract the results
             final byte leap = (byte) ((buffer[0] >> 6) & 0x3);
             final byte mode = (byte) (buffer[0] & 0x7);
             final int stratum = (int) (buffer[1] & 0xff);
-            final long referenceTime = readTimeStamp(buffer, REFERENCE_TIME_OFFSET);
-            final long originateTime = readTimeStamp(buffer, ORIGINATE_TIME_OFFSET);
-            final long receiveTime = readTimeStamp(buffer, RECEIVE_TIME_OFFSET);
-            final long transmitTime = readTimeStamp(buffer, TRANSMIT_TIME_OFFSET);
+            final Timestamp64 referenceTimestamp = readTimeStamp(buffer, REFERENCE_TIME_OFFSET);
+            final Timestamp64 originateTimestamp = readTimeStamp(buffer, ORIGINATE_TIME_OFFSET);
+            final Timestamp64 receiveTimestamp = readTimeStamp(buffer, RECEIVE_TIME_OFFSET);
+            final Timestamp64 transmitTimestamp = readTimeStamp(buffer, TRANSMIT_TIME_OFFSET);
             // Do validation according to RFC
-            checkValidServerReply(leap, mode, stratum, transmitTime, referenceTime,
-                    requestTime, originateTime);
+            checkValidServerReply(leap, mode, stratum, transmitTimestamp, referenceTimestamp,
+                    randomizedRequestTimestamp, originateTimestamp);
             long totalTransactionDurationMillis = responseTicks - requestTicks;
-            long serverDurationMillis = transmitTime - receiveTime;
-            long roundTripTime = totalTransactionDurationMillis - serverDurationMillis;
-            // According to RFC4330:
-            // t is the system clock offset (the adjustment we are trying to find)
-            // t = ((T2 - T1) + (T3 - T4)) / 2
-            long clockOffset = ((receiveTime - originateTime) + (transmitTime - responseTime)) / 2;
-            Log.d(TAG, "NTP server: " + address + ", RTT: " + roundTripTime + ", Clock Offset: " + clockOffset);
+            long serverDurationMillis =
+                    Duration64.between(receiveTimestamp, transmitTimestamp).toDuration().toMillis();
+            long roundTripTimeMillis = totalTransactionDurationMillis - serverDurationMillis;
+            Duration clockOffsetDuration = calculateClockOffset(requestTimestamp,
+                    receiveTimestamp, transmitTimestamp, responseTimestamp);
+            long clockOffsetMillis = clockOffsetDuration.toMillis();
+            Log.d(TAG, "NTP server: " + address + ", RTT: " + roundTripTimeMillis + ", Clock Offset: " + clockOffsetMillis);
             // save our results - use the times on this side of the network latency
             // (response rather than request time)
-            mClockOffset = clockOffset;
-            mNtpTime = responseTime + clockOffset;
+            mClockOffset = clockOffsetMillis;
+            mNtpTime = responseTime.plus(clockOffsetDuration).toEpochMilli();
             mNtpTimeReference = responseTicks;
-            mRoundTripTime = roundTripTime;
+            mRoundTripTime = roundTripTimeMillis;
         } catch (UnknownHostException e) {
             Log.w(TAG, "Unknown host: " + host);
             return false;
@@ -145,6 +165,28 @@ public class SntpClient {
             }
         }
         return true;
+    }
+
+    /** Performs the NTP clock offset calculation. */
+    public static Duration calculateClockOffset(Timestamp64 clientRequestTimestamp,
+                                                Timestamp64 serverReceiveTimestamp,
+                                                Timestamp64 serverTransmitTimestamp,
+                                                Timestamp64 clientResponseTimestamp) {
+        // According to RFC4330:
+        // t is the system clock offset (the adjustment we are trying to find)
+        // t = ((T2 - T1) + (T3 - T4)) / 2
+        //
+        // Which is:
+        // t = (([server]receiveTimestamp - [client]requestTimestamp)
+        //       + ([server]transmitTimestamp - [client]responseTimestamp)) / 2
+        //
+        // See the NTP spec and tests: the numeric types used are deliberate:
+        // + Duration64.between() uses 64-bit arithmetic (32-bit for the seconds).
+        // + plus() / dividedBy() use Duration, which isn't the double precision floating point
+        //   used in NTPv4, but is good enough.
+        return Duration64.between(clientRequestTimestamp, serverReceiveTimestamp)
+                .plus(Duration64.between(clientResponseTimestamp, serverTransmitTimestamp))
+                .dividedBy(2);
     }
 
     /**
@@ -183,9 +225,9 @@ public class SntpClient {
     }
 
     private static void checkValidServerReply(
-            byte leap, byte mode, int stratum, long transmitTime,
-            long referenceTime, long requestTime,
-            long originateTime) throws InvalidServerReplyException {
+            byte leap, byte mode, int stratum, Timestamp64 transmitTimestamp,
+            Timestamp64 referenceTimestamp, Timestamp64 randomizedRequestTimestamp,
+            Timestamp64 originateTimestamp) throws InvalidServerReplyException {
         if (leap == NTP_LEAP_NOSYNC) {
             throw new InvalidServerReplyException("unsynchronized server");
         }
@@ -195,71 +237,66 @@ public class SntpClient {
         if ((stratum == NTP_STRATUM_DEATH) || (stratum > NTP_STRATUM_MAX)) {
             throw new InvalidServerReplyException("untrusted stratum: " + stratum);
         }
-        if (requestTime != originateTime) {
-            Log.w(TAG, "request = " + requestTime + ", originate = " + originateTime);
+        if (!randomizedRequestTimestamp.equals(originateTimestamp)) {
             throw new InvalidServerReplyException(
-                    "originateTime != requestTime");
+                    "originateTimestamp != randomizedRequestTimestamp");
         }
-        if (transmitTime == 0.) {
-            throw new InvalidServerReplyException("zero transmitTime");
+        if (transmitTimestamp.equals(Timestamp64.ZERO)) {
+            throw new InvalidServerReplyException("zero transmitTimestamp");
         }
-        if (referenceTime == 0.) {
-            throw new InvalidServerReplyException("zero referenceTime");
+        if (referenceTimestamp.equals(Timestamp64.ZERO)) {
+            throw new InvalidServerReplyException("zero referenceTimestamp");
         }
     }
 
     /**
      * Reads an unsigned 32 bit big endian number from the given offset in the buffer.
      */
-    private long read32(byte[] buffer, int offset) {
-        byte b0 = buffer[offset];
-        byte b1 = buffer[offset + 1];
-        byte b2 = buffer[offset + 2];
-        byte b3 = buffer[offset + 3];
-        // convert signed bytes to unsigned values
-        int i0 = ((b0 & 0x80) == 0x80 ? (b0 & 0x7F) + 0x80 : b0);
-        int i1 = ((b1 & 0x80) == 0x80 ? (b1 & 0x7F) + 0x80 : b1);
-        int i2 = ((b2 & 0x80) == 0x80 ? (b2 & 0x7F) + 0x80 : b2);
-        int i3 = ((b3 & 0x80) == 0x80 ? (b3 & 0x7F) + 0x80 : b3);
-        return ((long) i0 << 24) + ((long) i1 << 16) + ((long) i2 << 8) + (long) i3;
+    private long readUnsigned32(byte[] buffer, int offset) {
+        int i0 = buffer[offset++] & 0xFF;
+        int i1 = buffer[offset++] & 0xFF;
+        int i2 = buffer[offset++] & 0xFF;
+        int i3 = buffer[offset] & 0xFF;
+        int bits = (i0 << 24) | (i1 << 16) | (i2 << 8) | i3;
+        return bits & 0xFFFF_FFFFL;
     }
 
     /**
      * Reads the NTP time stamp from the given offset in the buffer.
      */
-    private long readTimeStamp(byte[] buffer, int offset) {
-        long seconds = read32(buffer, offset);
-        long fraction = read32(buffer, offset + 4);
-        // Special case: zero means zero
-        if (seconds == 0 && fraction == 0) {
-            return 0;
-        }
-        return ((seconds - OFFSET_1900_TO_1970) * 1000) + ((fraction * 1000L) / 0x100000000L);
+    private Timestamp64 readTimeStamp(byte[] buffer, int offset) {
+        long seconds = readUnsigned32(buffer, offset);
+        int fractionBits = (int) readUnsigned32(buffer, offset + 4);
+        return Timestamp64.fromComponents(seconds, fractionBits);
     }
+
 
     /**
      * Writes the NTP time stamp at the given offset in the buffer.
      */
-    private void writeTimeStamp(byte[] buffer, int offset, long time) {
-        // Special case: zero means zero
-        if (time == 0) {
-            Arrays.fill(buffer, offset, offset + 8, (byte) 0x00);
-            return;
-        }
-        long seconds = time / 1000L;
-        long milliseconds = time - seconds * 1000L;
-        seconds += OFFSET_1900_TO_1970;
+    private void writeTimeStamp(byte[] buffer, int offset, Timestamp64 timestamp) {
+        long seconds = timestamp.getEraSeconds();
         // write seconds in big endian format
-        buffer[offset++] = (byte) (seconds >> 24);
-        buffer[offset++] = (byte) (seconds >> 16);
-        buffer[offset++] = (byte) (seconds >> 8);
+        buffer[offset++] = (byte) (seconds >>> 24);
+        buffer[offset++] = (byte) (seconds >>> 16);
+        buffer[offset++] = (byte) (seconds >>> 8);
         buffer[offset++] = (byte) (seconds);
-        long fraction = milliseconds * 0x100000000L / 1000L;
+        int fractionBits = timestamp.getFractionBits();
         // write fraction in big endian format
-        buffer[offset++] = (byte) (fraction >> 24);
-        buffer[offset++] = (byte) (fraction >> 16);
-        buffer[offset++] = (byte) (fraction >> 8);
-        // low order bits should be random data
-        buffer[offset] = (byte) (Math.random() * 255.0);
+        buffer[offset++] = (byte) (fractionBits >>> 24);
+        buffer[offset++] = (byte) (fractionBits >>> 16);
+        buffer[offset++] = (byte) (fractionBits >>> 8);
+        buffer[offset] = (byte) (fractionBits);
+    }
+
+    private static Random defaultRandom() {
+        Random random;
+        try {
+            random = SecureRandom.getInstanceStrong();
+        } catch (NoSuchAlgorithmException e) {
+            // This should never happen.
+            random = new Random(System.currentTimeMillis());
+        }
+        return random;
     }
 }
