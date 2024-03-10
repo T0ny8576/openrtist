@@ -58,7 +58,7 @@ public class SntpClient {
     private static final int NTP_MODE_CLIENT = 3;
     private static final int NTP_MODE_SERVER = 4;
     private static final int NTP_MODE_BROADCAST = 5;
-    private static final int NTP_VERSION = 1; // Use 1 instead of 3, as recommended by RFC1769
+    private static final int NTP_VERSION = 3;
     private static final int NTP_LEAP_NOSYNC = 3;
     private static final int NTP_STRATUM_DEATH = 0;
     private static final int NTP_STRATUM_MAX = 15;
@@ -110,7 +110,7 @@ public class SntpClient {
             socket.setSoTimeout(timeout);
             byte[] buffer = new byte[NTP_PACKET_SIZE];
             DatagramPacket request = new DatagramPacket(buffer, buffer.length, address, STANDARD_NTP_PORT);
-            // set mode = 3 (client) and version = 1
+            // set mode = 3 (client) and version = 3
             // mode is in low 3 bits of first byte
             // version is in bits 3-5 of first byte
             buffer[0] = NTP_MODE_CLIENT | (NTP_VERSION << 3);

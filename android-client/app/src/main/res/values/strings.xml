@@ -99,6 +99,18 @@
         <item>3</item>
     </string-array>
 
+    <string name="pref_title_app_network">Network Preference</string>
+    <string-array name="pref_app_network_titles">
+        <item>None</item>
+        <item>Wi-Fi</item>
+        <item>Cellular Data</item>
+    </string-array>
+    <string-array name="pref_app_network_values">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+    </string-array>
+
     <string name="pref_title_iterate_interval">Iterate Styles Periodically</string>
     <string name="fps_0">FPS: 0</string>
     <string-array name="pref_interval_list_titles">

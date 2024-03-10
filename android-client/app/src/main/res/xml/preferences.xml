@@ -18,7 +18,6 @@
             app:useSimpleSummaryProvider="true" />
 
         <ListPreference
-            android:summary="Blah blah"
             app:defaultValue="None"
             app:entries="@array/pref_token_list_titles"
             app:entryValues="@array/pref_token_list_values"
@@ -27,6 +26,16 @@
             app:positiveButtonText="@null"
             app:summary="@string/token_limit_summary"
             app:title="@string/pref_title_token_limit"
+            app:useSimpleSummaryProvider="true" />
+
+        <ListPreference
+            app:defaultValue="0"
+            app:entries="@array/pref_app_network_titles"
+            app:entryValues="@array/pref_app_network_values"
+            app:key="experimental_app_network"
+            app:negativeButtonText="@null"
+            app:positiveButtonText="@null"
+            app:title="@string/pref_title_app_network"
             app:useSimpleSummaryProvider="true" />
 
     </PreferenceCategory>

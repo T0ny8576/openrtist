@@ -14,8 +14,7 @@
 
 package edu.cmu.cs.gabriel;
 import android.content.SharedPreferences;
-import android.preference.PreferenceManager;
-import android.content.Context;
+import android.net.NetworkCapabilities;
 
 public class Const {
     public static boolean USING_FRONT_CAMERA = false;
@@ -38,7 +37,7 @@ public class Const {
     // image size and frame rate
     public static int CAPTURE_FPS = 30;
 
-    // options: 320x180, 640x360, 1280x720, 1920x1080
+    // options: 320x240, 640x360, 1280x720, [1920x1080]
     public static int IMAGE_WIDTH = 320;
     public static int IMAGE_HEIGHT = 240;
 
@@ -52,10 +51,13 @@ public class Const {
 
     public static final String SOURCE_NAME = "openrtist";
 
+    public static int APP_NETWORK_TRANSPORT_TYPE;
+    public static final int NTP_NETWORK_TRANSPORT_TYPE = NetworkCapabilities.TRANSPORT_WIFI;
+
     public static void loadPref(SharedPreferences sharedPreferences, String key) {
         Boolean b = null;
         Integer i = null;
-        //update Const values so that new settings take effect
+        // update Const values so that new settings take effect
         switch(key) {
             case "general_recording":
                 Const.SHOW_RECORDER = sharedPreferences.getBoolean(key, false);
@@ -65,11 +67,11 @@ public class Const {
                 Const.SHOW_FPS = b;
                 break;
             case "experimental_resolution":
-                i = new Integer(sharedPreferences.getString(key, "1"));
-                if(i == 1) {
+                i = Integer.valueOf(sharedPreferences.getString(key, "1"));
+                if (i == 1) {
                     Const.IMAGE_HEIGHT = 240;
                     Const.IMAGE_WIDTH = 320;
-                } else if(i == 2) {
+                } else if (i == 2) {
                     Const.IMAGE_HEIGHT = 480;
                     Const.IMAGE_WIDTH = 640;
                 } else if (i == 3) {
@@ -82,6 +84,17 @@ public class Const {
                 break;
             case "experimental_token_limit":
                 Const.TOKEN_LIMIT = sharedPreferences.getString(key, "2");
+                break;
+            case "experimental_app_network":
+                i = Integer.valueOf(sharedPreferences.getString(key, "0"));
+                if (i == 1) {
+                    Const.APP_NETWORK_TRANSPORT_TYPE = NetworkCapabilities.TRANSPORT_WIFI;
+                } else if (i == 2) {
+                    Const.APP_NETWORK_TRANSPORT_TYPE = NetworkCapabilities.TRANSPORT_CELLULAR;
+                } else {
+                    // Always prefer Wi-Fi if available
+                    Const.APP_NETWORK_TRANSPORT_TYPE = NetworkCapabilities.TRANSPORT_WIFI;
+                }
                 break;
             case "general_stereoscopic":
                 b = sharedPreferences.getBoolean(key, false);
@@ -106,11 +119,10 @@ public class Const {
                 break;
 
             case "general_iterate_delay":
-                i = new Integer(sharedPreferences.getString(key, "0"));
+                i = Integer.valueOf(sharedPreferences.getString(key, "0"));
                 Const.ITERATE_STYLES = (i != 0);
                 Const.ITERATE_INTERVAL = i * 5;
                 break;
-
         }
     }
 }

@@ -106,11 +106,9 @@ public class GabrielClientActivity extends AppCompatActivity implements
     private static final int BITRATE = 1024 * 1024;
     private static final int MEDIA_TYPE_IMAGE = 1;
     private static final int MEDIA_TYPE_VIDEO = 2;
-    private static final int APP_NETWORK_TRANSPORT_TYPE = NetworkCapabilities.TRANSPORT_CELLULAR;
-    private static final int NTP_NETWORK_TRANSPORT_TYPE = NetworkCapabilities.TRANSPORT_WIFI;
     private Timer ntpTimer;
     private Network ntpNetwork;
-    private static final long NTP_POLLING_INTERVAL = 500;
+    private static final long NTP_POLLING_INTERVAL = 1000;
     private static final long NTP_RTT_TOLERANCE = 10;
     private long minNtpRtt = NTP_POLLING_INTERVAL;
     private long lastNtpOffset;
@@ -726,7 +724,7 @@ public class GabrielClientActivity extends AppCompatActivity implements
         // Connect to another network and run the app
         NetworkRequest appNetworkRequest = new NetworkRequest.Builder()
                 .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-                .addTransportType(APP_NETWORK_TRANSPORT_TYPE)
+                .addTransportType(Const.APP_NETWORK_TRANSPORT_TYPE)
                 .build();
         connectivityManager = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
         ConnectivityManager.NetworkCallback appNetworkCallback = new ConnectivityManager.NetworkCallback() {
@@ -862,10 +860,9 @@ public class GabrielClientActivity extends AppCompatActivity implements
     }
 
     void setupComm() {
-        connectivityManager = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
         NetworkRequest ntpNetworkRequest = new NetworkRequest.Builder()
                 .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-                .addTransportType(NTP_NETWORK_TRANSPORT_TYPE)
+                .addTransportType(Const.NTP_NETWORK_TRANSPORT_TYPE)
                 .build();
         ConnectivityManager.NetworkCallback ntpNetworkCallback = new ConnectivityManager.NetworkCallback() {
             @Override
