@@ -15,6 +15,7 @@
  */
 package edu.cmu.cs.gabriel.network;
 
+import android.net.Network;
 import android.os.SystemClock;
 import android.util.Log;
 import java.net.DatagramPacket;
@@ -78,14 +79,16 @@ public class SntpClient {
      * @param timeout network timeout in milliseconds. the timeout doesn't include the DNS lookup
      *                time, and it applies to each individual query to the resolved addresses of
      *                the NTP server.
+     * @param network network over which to send the request.
      * @return true if the transaction was successful.
      */
-    public boolean requestTime(String host, int timeout) {
+    public boolean requestTime(String host, int timeout, Network network) {
         DatagramSocket socket = null;
-        InetAddress address = null;
         try {
-            address = InetAddress.getByName(host);
+            InetAddress[] addresses = network.getAllByName(host);
+            InetAddress address = addresses[0];
             socket = new DatagramSocket();
+            network.bindSocket(socket);
             socket.setSoTimeout(timeout);
             byte[] buffer = new byte[NTP_PACKET_SIZE];
             DatagramPacket request = new DatagramPacket(buffer, buffer.length, address, STANDARD_NTP_PORT);
@@ -193,6 +196,7 @@ public class SntpClient {
             throw new InvalidServerReplyException("untrusted stratum: " + stratum);
         }
         if (requestTime != originateTime) {
+            Log.w(TAG, "request = " + requestTime + ", originate = " + originateTime);
             throw new InvalidServerReplyException(
                     "originateTime != requestTime");
         }

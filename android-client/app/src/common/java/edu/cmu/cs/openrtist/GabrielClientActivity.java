@@ -25,6 +25,10 @@ import android.media.MediaActionSound;
 import android.media.MediaRecorder;
 import android.media.projection.MediaProjection;
 import android.media.projection.MediaProjectionManager;
+import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.NetworkCapabilities;
+import android.net.NetworkRequest;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -75,6 +79,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -106,6 +112,10 @@ public class GabrielClientActivity extends AppCompatActivity implements
     private static final int BITRATE = 1024 * 1024;
     private static final int MEDIA_TYPE_IMAGE = 1;
     private static final int MEDIA_TYPE_VIDEO = 2;
+    private static final int APP_NETWORK_TRANSPORT_TYPE = NetworkCapabilities.TRANSPORT_CELLULAR;
+    private static final int NTP_NETWORK_TRANSPORT_TYPE = NetworkCapabilities.TRANSPORT_WIFI;
+    public Network ntpNetwork;
+    private static final long NTP_POLLING_INTERVAL = 2000;
 
     // major components for streaming sensor data and receiving information
     String serverIP = null;
@@ -171,19 +181,23 @@ public class GabrielClientActivity extends AppCompatActivity implements
     public final ConcurrentLinkedDeque<String> logList = new ConcurrentLinkedDeque<>();
     public SntpClient sntpClient;
     public boolean ntpReceived = false;
+    public ConnectivityManager connectivityManager;
 
-    private class NtpSyncTask implements Runnable {
+    private class NtpTimerTask extends TimerTask {
         @Override
         public void run() {
-            // TODO: Re-sync once after a while
-            while (!sntpClient.requestTime("labgw.elijah.cs.cmu.edu", 5000)) {
-                Log.w(LOG_TAG, "Failed to connect to labgw. Retrying...");
+//            if (!sntpClient.requestTime("labgw.elijah.cs.cmu.edu", 5000, ntpNetwork)) {
+            if (!sntpClient.requestTime("ec2-54-197-201-248.compute-1.amazonaws.com", 5000, ntpNetwork)) {
+//            if (!sntpClient.requestTime("time.cloudflare.com", 5000, ntpNetwork)) {
+                    Log.w(LOG_TAG, "Failed to connect to NTP server. Retrying...");
+                }
+                Log.w(LOG_TAG, "Success! Connected to NTP server using " +
+                        connectivityManager.getNetworkInfo(ntpNetwork).getTypeName() +
+                        ". RTT = " + sntpClient.getRoundTripTime() +
+                        ", Offset = " + sntpClient.getClockOffset());
+                ntpReceived = true;
             }
-            Log.w(LOG_TAG, "Success! Connected to labgw. RTT = " + sntpClient.getRoundTripTime() +
-                    ", Offset = " + sntpClient.getClockOffset());
-            ntpReceived = true;
         }
-    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -364,11 +378,6 @@ public class GabrielClientActivity extends AppCompatActivity implements
             );
             rs = RenderScript.create(this);
         }
-
-        sntpClient = new SntpClient();
-        NtpSyncTask ntpSyncTask = new NtpSyncTask();
-        ExecutorService threadExecutor = Executors.newSingleThreadExecutor();
-        threadExecutor.submit(ntpSyncTask);
 
         File logFile = new File(getExternalFilesDir(null), LOGFILE);
         logFile.delete();
@@ -707,7 +716,24 @@ public class GabrielClientActivity extends AppCompatActivity implements
 
         if (serverIP == null) return;
 
-        this.setupComm();
+        // Connect to another network and run the app
+        NetworkRequest appNetworkRequest = new NetworkRequest.Builder()
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                .addTransportType(APP_NETWORK_TRANSPORT_TYPE)
+                .build();
+        connectivityManager = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        ConnectivityManager.NetworkCallback appNetworkCallback = new ConnectivityManager.NetworkCallback() {
+            @Override
+            public void onAvailable(@NonNull Network network) {
+                Log.w(LOG_TAG, "Requested app network type available, using " +
+                        connectivityManager.getNetworkInfo(network).getTypeName() + " " +
+                        connectivityManager.getNetworkInfo(network).getSubtypeName());
+                Log.w(LOG_TAG, "Network binding for app: " + connectivityManager.bindProcessToNetwork(network));
+                setupComm();
+            }
+        };
+        connectivityManager.requestNetwork(appNetworkRequest, appNetworkCallback);
+
         if (Const.STEREO_ENABLED) {
             preview = findViewById(R.id.camera_preview1);
         } else {
@@ -829,6 +855,26 @@ public class GabrielClientActivity extends AppCompatActivity implements
     }
 
     void setupComm() {
+        connectivityManager = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        NetworkRequest ntpNetworkRequest = new NetworkRequest.Builder()
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                .addTransportType(NTP_NETWORK_TRANSPORT_TYPE)
+                .build();
+        ConnectivityManager.NetworkCallback ntpNetworkCallback = new ConnectivityManager.NetworkCallback() {
+            @Override
+            public void onAvailable(@NonNull Network network) {
+                Log.w(LOG_TAG, "Requested NTP network type available, using " +
+                        connectivityManager.getNetworkInfo(network).getTypeName() + " " +
+                        connectivityManager.getNetworkInfo(network).getSubtypeName());
+                // Time synchronization using SNTP
+                ntpNetwork = network;
+                sntpClient = new SntpClient();
+                Timer timer = new Timer();
+                timer.scheduleAtFixedRate(new NtpTimerTask(), 0, NTP_POLLING_INTERVAL);
+            }
+        };
+        connectivityManager.requestNetwork(ntpNetworkRequest, ntpNetworkCallback);
+
         int port = getPort();
 
         Consumer<ByteString> imageViewUpdater = Const.STEREO_ENABLED
