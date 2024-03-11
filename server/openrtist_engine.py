@@ -47,6 +47,7 @@ from msrest.authentication import CognitiveServicesCredentials
 import http.client, urllib.request, urllib.parse, urllib.error, base64
 import json
 from emotion_to_style import emotion_to_style_map
+from torch_adapter import TorchAdapter
 
 
 class OpenrtistEngine(cognitive_engine.Engine):
@@ -68,6 +69,7 @@ class OpenrtistEngine(cognitive_engine.Engine):
         self.alpha = mrk_alpha.astype(float) / 255
 
         self.last_style = "?"
+        self.last_shape = None
 
         # TODO support server display
 
@@ -92,6 +94,11 @@ class OpenrtistEngine(cognitive_engine.Engine):
         emotion_enabled = False
         style = None
 
+        # Preprocessing steps used by both engines
+        np_data = np.frombuffer(input_frame.payloads[0], dtype=np.uint8)
+        orig_img = cv2.imdecode(np_data, cv2.IMREAD_COLOR)
+        orig_img = cv2.cvtColor(orig_img, cv2.COLOR_BGR2RGB)
+
         if extras.style == "?":
             new_style = True
             send_style_list = True
@@ -103,19 +110,18 @@ class OpenrtistEngine(cognitive_engine.Engine):
                 self.adapter.set_style(style)
                 new_style = True
                 self.last_style = style
-        elif extras.style != self.last_style:
+        elif extras.style != self.last_style or self.last_shape is None or tuple(orig_img.shape) != self.last_shape:
+            if isinstance(self.adapter, TorchAdapter):
+                self.adapter.set_shape(tuple(orig_img.shape))
             self.adapter.set_style(extras.style)
             self.last_style = extras.style
             style = extras.style
-            logger.info("New Style: %s", extras.style)
+            logger.info("New Style: %s, New Shape: %s", extras.style, tuple(orig_img.shape))
             new_style = True
         elif not emotion_enabled:
             style = self.adapter.get_style()
 
-        # Preprocessing steps used by both engines
-        np_data = np.frombuffer(input_frame.payloads[0], dtype=np.uint8)
-        orig_img = cv2.imdecode(np_data, cv2.IMREAD_COLOR)
-        orig_img = cv2.cvtColor(orig_img, cv2.COLOR_BGR2RGB)
+        self.last_shape = tuple(orig_img.shape)
 
         # It is possible that no face is detected and style is None, if so bypass processing
         if style:

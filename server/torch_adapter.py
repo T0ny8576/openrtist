@@ -61,7 +61,7 @@ class TorchAdapter(OpenrtistAdapter):
         self._g = None
         self._graph_captured = False
         self._init_styles = True
-        self.img_resolution = STARTUP_ONES_SIZE  # TODO: update according to first image;
+        self._img_resolution = STARTUP_ONES_SIZE
         self._static_input = None
         self._static_output = None
 
@@ -86,6 +86,9 @@ class TorchAdapter(OpenrtistAdapter):
     def set_style(self, new_style):
         if super().set_style(new_style):
             self._update_model_style(new_style)
+
+    def set_shape(self, new_shape):
+        self._img_resolution = new_shape
 
     def preprocessing(self, img):
         content_image = self.content_transform(img)
@@ -123,7 +126,7 @@ class TorchAdapter(OpenrtistAdapter):
             # Warm-up again
             self._g = None
             self._graph_captured = False
-            self._static_input = self.preprocessing(np.ones(self.img_resolution, np.uint8))
+            self._static_input = self.preprocessing(np.ones(self._img_resolution, np.uint8))
             s = torch.cuda.Stream()
             s.wait_stream(torch.cuda.current_stream())
             with torch.cuda.stream(s):
