@@ -15,7 +15,7 @@ class TimingEngine(OpenrtistEngine):
         self.t1 = 0.
         self.t2 = 0.
         self.gpu_time = 0.
-        self.logfile = os.path.join(BASEDIR, "log-" + str(int(self.last_time)) + ".txt")
+        self.logfile = os.path.join(BASEDIR, "Server-Log-" + str(int(self.last_time)) + ".txt")
         self.logtext = ""
 
     def handle(self, input_frame):
