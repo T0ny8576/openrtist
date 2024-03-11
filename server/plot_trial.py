@@ -149,12 +149,13 @@ def plot_trial(server_log_file, client_log_file, log_dir, plot_detailed_figures)
         fig.savefig(os.path.join(log_dir, "frame_total_timeline_stacked.png"), dpi=600, bbox_inches="tight")
         plt.close(fig)
 
-    return np.mean(stacked, axis=1), np.median(stacked, axis=1), np.std(stacked, axis=1)
+    return (np.mean(stacked, axis=1), np.median(stacked, axis=1), np.std(stacked, axis=1),
+            np.percentile(stacked, 2.5, axis=1), np.percentile(stacked, 97.5, axis=1))
 
 
 if __name__ == "__main__":
     BASEDIR = os.path.dirname(os.path.abspath(__file__))
-    LOGDIR = os.path.join(BASEDIR, "logs/", "tmobile_cloudlet_240p/")
+    LOGDIR = os.path.join(BASEDIR, "logs/", "tmobile_cloudlet_480p/")
     CLIENT_LOG = "Client-Timing.txt"
     SERVER_LOG = "Server-Log.txt"
     plot_trial(SERVER_LOG, CLIENT_LOG, LOGDIR, True)
