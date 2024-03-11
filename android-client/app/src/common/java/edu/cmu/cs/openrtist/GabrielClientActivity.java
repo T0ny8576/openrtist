@@ -182,6 +182,7 @@ public class GabrielClientActivity extends AppCompatActivity implements
     private class NtpTimerTask extends TimerTask {
         @Override
         public void run() {
+            // TODO: Make NTP Server an editable option in settings or in serverList
             if (!sntpClient.requestTime("labgw.elijah.cs.cmu.edu", 5000, ntpNetwork)) {
 //            if (!sntpClient.requestTime("ec2-54-197-201-248.compute-1.amazonaws.com", 5000, ntpNetwork)) {
 //            if (!sntpClient.requestTime("time.cloudflare.com", 5000, ntpNetwork)) {
@@ -834,6 +835,7 @@ public class GabrielClientActivity extends AppCompatActivity implements
                 } else {
                     runOnUiThread(() -> imgView.setVisibility(View.VISIBLE));
                 }
+                cleared = false;
             } else if (!cleared) {
                 Log.v(LOG_TAG, "Display Cleared");
 

@@ -57,6 +57,10 @@ public class ResultConsumer implements Consumer<ResultWrapper> {
                 this.gabrielClientActivity.addStyles(new TreeMap<String, String>(extras.getStyleListMap()).entrySet());
             }
             received = true;
+
+            if (!"none".equals(extras.getStyle())) {
+                this.imageViewUpdater.accept(result.getPayload());
+            }
         }  catch (InvalidProtocolBufferException e) {
             Log.e(TAG, "Protobuf Error", e);
         }
@@ -66,7 +70,6 @@ public class ResultConsumer implements Consumer<ResultWrapper> {
             return;
         }
 
-        this.imageViewUpdater.accept(result.getPayload());
         this.gabrielClientActivity.addFrameProcessed();
         if (received) {
             frameRecvString = frameRecvString +  receivedFrameCount + "\tClient Done\t" + gabrielClientActivity.getNetworkTimeString() + "\n";
