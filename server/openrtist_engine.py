@@ -65,8 +65,9 @@ class OpenrtistEngine(cognitive_engine.Engine):
 
         # The RGB channels are equivalent
         self.mrk, _, _, mrk_alpha = cv2.split(wtr_mrk4)
-
         self.alpha = mrk_alpha.astype(float) / 255
+
+        self.last_style = "?"
 
         # TODO support server display
 
@@ -89,22 +90,26 @@ class OpenrtistEngine(cognitive_engine.Engine):
         new_style = False
         send_style_list = False
         emotion_enabled = False
+        style = None
 
         if extras.style == "?":
             new_style = True
             send_style_list = True
+            self.last_style = "?"
         elif self.face_supported and extras.style == "aaa_emotion_enabled":
             emotion_enabled = True
             style = self.emotion_detection(input_frame.payloads[0])
             if style:
                 self.adapter.set_style(style)
                 new_style = True
-        elif extras.style != self.adapter.get_style():
+                self.last_style = style
+        elif extras.style != self.last_style:
             self.adapter.set_style(extras.style)
+            self.last_style = extras.style
+            style = extras.style
             logger.info("New Style: %s", extras.style)
             new_style = True
-
-        if not emotion_enabled:
+        elif not emotion_enabled:
             style = self.adapter.get_style()
 
         # Preprocessing steps used by both engines
@@ -173,6 +178,8 @@ class OpenrtistEngine(cognitive_engine.Engine):
 
         if style:
             extras.style = style
+        else:
+            extras.style = "none"
 
         if new_style:
             extras.style_image.value = self.adapter.get_style_image()
