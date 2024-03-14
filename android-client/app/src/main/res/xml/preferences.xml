@@ -38,6 +38,14 @@
             app:title="@string/pref_title_app_network"
             app:useSimpleSummaryProvider="true" />
 
+        <EditTextPreference
+            app:defaultValue="@string/default_ntp_server"
+            app:key="experimental_ntp_server"
+            app:negativeButtonText="@null"
+            app:positiveButtonText="@null"
+            app:title="@string/pref_title_ntp_server"
+            app:useSimpleSummaryProvider="true" />
+
     </PreferenceCategory>
 
     <PreferenceCategory

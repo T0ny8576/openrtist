@@ -51,6 +51,7 @@ public class Const {
 
     public static final String SOURCE_NAME = "openrtist";
 
+    public static String NTP_SERVER = "";
     public static int APP_NETWORK_TRANSPORT_TYPE;
     public static final int NTP_NETWORK_TRANSPORT_TYPE = NetworkCapabilities.TRANSPORT_WIFI;
 
@@ -95,6 +96,9 @@ public class Const {
                     // Always prefer Wi-Fi if available
                     Const.APP_NETWORK_TRANSPORT_TYPE = NetworkCapabilities.TRANSPORT_WIFI;
                 }
+                break;
+            case "experimental_ntp_server":
+                Const.NTP_SERVER = sharedPreferences.getString(key, "");
                 break;
             case "general_stereoscopic":
                 b = sharedPreferences.getBoolean(key, false);

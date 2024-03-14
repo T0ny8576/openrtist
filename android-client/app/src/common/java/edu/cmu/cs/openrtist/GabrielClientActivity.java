@@ -182,10 +182,10 @@ public class GabrielClientActivity extends AppCompatActivity implements
     private class NtpTimerTask extends TimerTask {
         @Override
         public void run() {
-            // TODO: Make NTP Server an editable option in settings or in serverList
-            if (!sntpClient.requestTime("labgw.elijah.cs.cmu.edu", 5000, ntpNetwork)) {
-//            if (!sntpClient.requestTime("ec2-54-197-201-248.compute-1.amazonaws.com", 5000, ntpNetwork)) {
-//            if (!sntpClient.requestTime("time.cloudflare.com", 5000, ntpNetwork)) {
+            if (!sntpClient.requestTime(Const.NTP_SERVER, 5000, ntpNetwork)) {
+                // "labgw.elijah.cs.cmu.edu"
+                // "ec2-54-197-201-248.compute-1.amazonaws.com"
+                // "time.cloudflare.com"
                 Log.w(LOG_TAG, "Failed to request time from NTP server");
             } else {
                 long rtt = sntpClient.getRoundTripTime();
@@ -515,7 +515,10 @@ public class GabrielClientActivity extends AppCompatActivity implements
         Log.v(LOG_TAG, "++onPause");
 
         writeLog();
-        ntpTimer.cancel();
+        minNtpRtt = NTP_POLLING_INTERVAL;  // Reset minNtpRtt
+        if (ntpTimer != null) {
+            ntpTimer.cancel();
+        }
         if(iterationHandler != null) {
             iterationHandler.removeCallbacks(styleIterator);
         }
