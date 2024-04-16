@@ -51,8 +51,8 @@ public class OpenrtistComm {
         if (!this.serverComm.isRunning()) {
             return;
         }
-        if (inputFrameCount > 1000) {
-            Log.w("PROFILE1", "Done 1000.\n");
+        if (inputFrameCount > 500) {
+            Log.w("PROFILE1", "Done 500.\n");
             return;
         }
         SendSupplierResult result = this.serverComm.sendSupplier(supplier, Const.SOURCE_NAME, /* wait */ false);

@@ -6,7 +6,7 @@ from plot_trial import *
 BASEDIR = os.path.dirname(os.path.abspath(__file__))
 
 
-def plot_comparison(data_to_compare, config_names, output_file):
+def plot_comparison(data_to_compare, config_names, title, output_file):
     # TODO: Group the bars! Use pandas, or use another plot library (Seaborn?)
     labels = ["client_pre", "net_uplink", "server_pre", "server_infer",
               "server_post", "net_downlink", "client_post"]
@@ -17,9 +17,9 @@ def plot_comparison(data_to_compare, config_names, output_file):
     y_error_upper = np.stack([data[4] - data[0] for data in data_to_compare]).T
     x = np.arange(len(config_names))
     fig, ax = plt.subplots()
-    ax.set_xticks(x, config_names)
+    ax.set_xticks(x, config_names, fontsize=5)
     ax.set_ylabel('Time (ms)')
-    ax.set_title('Application Response Time Comparison - 240p')
+    ax.set_title(title)
 
     bottom = np.zeros(len(config_names))
     for i in range(len(labels)):
@@ -41,66 +41,32 @@ def plot_comparison(data_to_compare, config_names, output_file):
 
 
 if __name__ == "__main__":
-    wifi_cloudlet_data_240p = plot_trial("Server-Log.txt",
-                                         "Client-Timing.txt",
-                                         os.path.join(BASEDIR, "logs/", "wifi_cloudlet_240p/"),
-                                         False)
-    wifi_aws_data_240p = plot_trial("Server-Log.txt",
-                                    "Client-Timing.txt",
-                                    os.path.join(BASEDIR, "logs/", "wifi_aws_240p/"),
-                                    False)
-    tmobile_cloudlet_data_240p = plot_trial("Server-Log.txt",
-                                            "Client-Timing.txt",
-                                            os.path.join(BASEDIR, "logs/", "tmobile_cloudlet_240p/"),
-                                            False)
-    tmobile_aws_data_240p = plot_trial("Server-Log.txt",
-                                       "Client-Timing.txt",
-                                       os.path.join(BASEDIR, "logs/", "tmobile_aws_240p/"),
-                                       False)
-    cbrs_cloudlet_data_240p = plot_trial("Server-Log.txt",
-                                         "Client-Timing.txt",
-                                         os.path.join(BASEDIR, "logs/", "cbrs_cloudlet_240p/"),
-                                         False)
-    cbrs_aws_data_240p = plot_trial("Server-Log.txt",
-                                    "Client-Timing.txt",
-                                    os.path.join(BASEDIR, "logs/", "cbrs_aws_240p/"),
-                                    False)
-    data_240p = [wifi_cloudlet_data_240p, wifi_aws_data_240p,
-                 tmobile_cloudlet_data_240p, tmobile_aws_data_240p,
-                 cbrs_cloudlet_data_240p, cbrs_aws_data_240p]
-    trial_names = ["Wi-Fi\nCloudlet", "Wi-Fi\nAWS",
-                   "T-Mobile\nCloudlet", "T-Mobile\nAWS",
-                   "CBRS\nCloudlet", "CBRS\nAWS"]
-    plot_comparison(data_240p, trial_names, os.path.join(BASEDIR, "logs/", "breakdown_comparison_240p.png"))
+    data_240p_folders = ["wifi_cloudlet_240p/", "wifi_aws_240p/",
+                         "tmobile_cloudlet_240p/", "tmobile_aws_240p/",
+                         "cbrs_cloudlet_new_240p/", "cbrs_aws_new_240p/",
+                         "python_client_wifi_cloudlet_240p/", "python_client_wifi_aws_240p/",
+                         "python_client_tmobile_cloudlet_240p/", "python_client_tmobile_aws_240p/",
+                         "python_client_cbrs_cloudlet_240p/", "python_client_cbrs_aws_240p/"]
+    data_240p = [plot_trial("Server-Log.txt", "Client-Timing.txt",
+                            os.path.join(BASEDIR, "logs/", data_folder), False)
+                 for data_folder in data_240p_folders]
+    trial_names = ["Wi-Fi\nCloudlet\nAndroid", "Wi-Fi\nAWS\nAndroid",
+                   "T-Mobile\nCloudlet\nAndroid", "T-Mobile\nAWS\nAndroid",
+                   "CBRS\nCloudlet\nAndroid", "CBRS\nAWS\nAndroid",
+                   "Wi-Fi\nCloudlet\nPython", "Wi-Fi\nAWS\nPython",
+                   "T-Mobile\nCloudlet\nPython", "T-Mobile\nAWS\nPython",
+                   "CBRS\nCloudlet\nPython", "CBRS\nAWS\nPython"]
+    plot_comparison(data_240p, trial_names, "Application Response Time Comparison - 240p",
+                    os.path.join(BASEDIR, "logs/", "breakdown_comparison_240p.png"))
 
-    wifi_cloudlet_data_480p = plot_trial("Server-Log.txt",
-                                         "Client-Timing.txt",
-                                         os.path.join(BASEDIR, "logs/", "wifi_cloudlet_480p/"),
-                                         False)
-    wifi_aws_data_480p = plot_trial("Server-Log.txt",
-                                    "Client-Timing.txt",
-                                    os.path.join(BASEDIR, "logs/", "wifi_aws_480p/"),
-                                    False)
-    tmobile_cloudlet_data_480p = plot_trial("Server-Log.txt",
-                                            "Client-Timing.txt",
-                                            os.path.join(BASEDIR, "logs/", "tmobile_cloudlet_480p/"),
-                                            False)
-    tmobile_aws_data_480p = plot_trial("Server-Log.txt",
-                                       "Client-Timing.txt",
-                                       os.path.join(BASEDIR, "logs/", "tmobile_aws_480p/"),
-                                       False)
-    cbrs_cloudlet_data_480p = plot_trial("Server-Log.txt",
-                                         "Client-Timing.txt",
-                                         os.path.join(BASEDIR, "logs/", "cbrs_cloudlet_480p/"),
-                                         False)
-    cbrs_aws_data_480p = plot_trial("Server-Log.txt",
-                                    "Client-Timing.txt",
-                                    os.path.join(BASEDIR, "logs/", "cbrs_aws_480p/"),
-                                    False)
-    data_480p = [wifi_cloudlet_data_480p, wifi_aws_data_480p,
-                 tmobile_cloudlet_data_480p, tmobile_aws_data_480p,
-                 cbrs_cloudlet_data_480p, cbrs_aws_data_480p]
-    trial_names = ["Wi-Fi\nCloudlet", "Wi-Fi\nAWS",
-                   "T-Mobile\nCloudlet", "T-Mobile\nAWS",
-                   "CBRS\nCloudlet", "CBRS\nAWS"]
-    plot_comparison(data_480p, trial_names, os.path.join(BASEDIR, "logs/", "breakdown_comparison_480p.png"))
+    # data_480p_folders = ["wifi_cloudlet_480p/", "wifi_aws_480p/",
+    #                      "tmobile_cloudlet_480p/", "tmobile_aws_480p/",
+    #                      "cbrs_cloudlet_480p/", "cbrs_aws_480p/"]
+    # data_480p = [plot_trial("Server-Log.txt", "Client-Timing.txt",
+    #                         os.path.join(BASEDIR, "logs/", data_folder), False)
+    #              for data_folder in data_480p_folders]
+    # trial_names = ["Wi-Fi\nCloudlet\nAndroid", "Wi-Fi\nAWS\nAndroid",
+    #                "T-Mobile\nCloudlet\nAndroid", "T-Mobile\nAWS\nAndroid",
+    #                "CBRS\nCloudlet\nAndroid", "CBRS\nAWS\nAndroid"]
+    # plot_comparison(data_480p, trial_names, "Application Response Time Comparison - 480p",
+    #                 os.path.join(BASEDIR, "logs/", "breakdown_comparison_480p.png"))

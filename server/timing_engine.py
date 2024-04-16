@@ -4,7 +4,7 @@ import os
 import torch
 
 BASEDIR = os.path.dirname(os.path.abspath(__file__))
-MAX_COUNT = 1001
+MAX_COUNT = 501
 
 
 class TimingEngine(OpenrtistEngine):

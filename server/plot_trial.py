@@ -25,9 +25,9 @@ def plot_individual_timeline(per_frame_data, ylabel, fname, frame_to_plot=None):
         frame_to_plot = len(per_frame_data)
     ax.set_xlim(0, frame_to_plot)
     fig.set_figwidth(60)
-    p = ax.bar(np.arange(frame_to_plot), per_frame_data[:frame_to_plot], width=1.)
+    p = ax.plot(np.arange(frame_to_plot), per_frame_data[:frame_to_plot], '.-')
     for i in range(frame_to_plot):
-        ax.text(i, per_frame_data[:frame_to_plot][i], int(per_frame_data[:frame_to_plot][i]), ha='center', fontsize=10)
+        ax.text(i, per_frame_data[:frame_to_plot][i], int(per_frame_data[:frame_to_plot][i]), ha='center', fontsize=6)
     agg_text = "mean = {:.2f}\nmedian = {:.2f}\nstd = {:.2f}".format(
         np.mean(per_frame_data), np.median(per_frame_data), np.std(per_frame_data))
     ax.text(0.9, 0.85, agg_text, transform=ax.transAxes, bbox=dict(fc='white', ec='black', alpha=0.5))
@@ -126,12 +126,12 @@ def plot_trial(server_log_file, client_log_file, log_dir, plot_detailed_figures)
                   "server_post", "net_downlink", "client_post"]
         fig, ax = plt.subplots()
         ax.set_xlabel('Frame Id')
-        ax.set_xlim(0, 1000)
+        num_chosen = num_frames
+        ax.set_xlim(0, num_chosen)
         ax.set_ylabel('Latency (ms)')
         ax.set_title('End-to-end Delay Distribution per Frame')
         fig.set_figwidth(50)
 
-        num_chosen = num_frames
         bottom = np.zeros(num_chosen)
         for i in range(len(labels)):
             p = ax.bar(np.arange(num_chosen), stacked[i][:num_chosen], width=1., label=labels[i], bottom=bottom)
@@ -155,7 +155,7 @@ def plot_trial(server_log_file, client_log_file, log_dir, plot_detailed_figures)
 
 if __name__ == "__main__":
     BASEDIR = os.path.dirname(os.path.abspath(__file__))
-    LOGDIR = os.path.join(BASEDIR, "logs/", "tmobile_cloudlet_480p/")
+    LOGDIR = os.path.join(BASEDIR, "logs/", "_tmp/")
     CLIENT_LOG = "Client-Timing.txt"
     SERVER_LOG = "Server-Log.txt"
     plot_trial(SERVER_LOG, CLIENT_LOG, LOGDIR, True)
