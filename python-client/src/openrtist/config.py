@@ -13,9 +13,9 @@
 # limitations under the License.
 
 PORT = 9099
-STYLE_DISPLAY_INTERVAL = 300  # Number of frames
-CAM_FPS = 15
-IMG_WIDTH = 640
-IMG_HEIGHT = 480
-START_STYLE_STRING = "udnie"
+STYLE_DISPLAY_INTERVAL = 500  # 300  # Number of frames
+CAM_FPS = 30  # 15
+IMG_WIDTH = 320  # 640
+IMG_HEIGHT = 240  # 480
+START_STYLE_STRING = "mosaic"  # "udnie"
 SOURCE_NAME = "openrtist"

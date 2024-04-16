@@ -3,10 +3,10 @@ from threading import Thread
 from time import sleep
 
 import cv2
-from gabriel_client.websocket_client import WebsocketClient
 
 from . import config
 from .adapter import Adapter
+from .timing_client import TimingClient
 
 logger = logging.getLogger(__name__)
 
@@ -93,7 +93,7 @@ class CaptureAdapter:
             consume_rgb_frame_style(rgb_frame, style, style_image)
 
         self.adapter = Adapter(
-            self.preprocess, consume_frame_style, video_capture, start_style="?"
+            self.preprocess, consume_frame_style, video_capture  # , start_style="?"
         )
 
 
@@ -113,4 +113,4 @@ def create_client(
         video_source=video_source,
         capture_device=capture_device,
     )
-    return WebsocketClient(host, port, adapter.producer_wrappers, adapter.consumer)
+    return TimingClient(host, port, adapter.producer_wrappers, adapter.consumer)

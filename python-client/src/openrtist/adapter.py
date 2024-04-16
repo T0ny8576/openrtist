@@ -17,9 +17,9 @@ import random
 
 import cv2
 import numpy as np
-from gabriel_client.opencv_adapter import OpencvAdapter
 
 from . import config, openrtist_pb2
+from .timing_opencv_adapter import TimingOpenCVAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -81,7 +81,7 @@ class Adapter:
 
             consume_frame_style(frame, extras.style, self.style_image)
 
-        self._opencv_adapter = OpencvAdapter(
+        self._opencv_adapter = TimingOpenCVAdapter(
             preprocess,
             produce_extras,
             consume_frame,
