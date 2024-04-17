@@ -50,7 +50,8 @@ class Adapter:
         consume_frame_style takes one frame parameter and one style parameter
         """
 
-        self._style = start_style
+        self._start_style = start_style
+        self._style = "?"  # request style list from server
         self.available_styles = []
         self.style_image = None
 
@@ -62,11 +63,11 @@ class Adapter:
         def consume_frame(frame, packed_extras):
             extras = openrtist_pb2.Extras()
             packed_extras.Unpack(extras)
-            if self._style == "?":
-                self._style = extras.style
-            if len(extras.style_list) > 0:
+            if self._style == "?" and len(extras.style_list) > 0:
                 self.available_styles = list(extras.style_list.keys())
                 random.shuffle(self.available_styles)
+                if self._start_style in self.available_styles:
+                    self._style = self._start_style
             if extras.HasField("style_image"):
                 if len(extras.style_image.value) == 0:
                     self.style_image = None

@@ -17,7 +17,7 @@ class TimingClient(WebsocketClient):
         self._send_time = 0
         self._response_time = 0
         self._post_process_time = 0
-        self._logfile = os.path.join(BASEDIR, "Client-Timing.txt")
+        self._logfile = os.path.join(BASEDIR, "Client-Timing-" + str(int(time.time())) + ".txt")
         self._logtext = ""
 
     def _process_response(self, response):

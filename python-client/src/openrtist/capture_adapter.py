@@ -93,7 +93,7 @@ class CaptureAdapter:
             consume_rgb_frame_style(rgb_frame, style, style_image)
 
         self.adapter = Adapter(
-            self.preprocess, consume_frame_style, video_capture  # , start_style="?"
+            self.preprocess, consume_frame_style, video_capture
         )
 
 

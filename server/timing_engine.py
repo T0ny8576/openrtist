@@ -3,6 +3,9 @@ import time
 import os
 import torch
 
+from gabriel_server import cognitive_engine
+import openrtist_pb2
+
 BASEDIR = os.path.dirname(os.path.abspath(__file__))
 MAX_COUNT = 501
 
@@ -10,16 +13,30 @@ MAX_COUNT = 501
 class TimingEngine(OpenrtistEngine):
     def __init__(self, compression_params, adapter):
         super().__init__(compression_params, adapter)
+        self.new_client_request = False
         self.count = 0
         self.last_time = time.time()
+        self.t0 = None
         self.t1 = 0.
         self.t2 = 0.
+        self.t3 = None
         self.gpu_time = 0.
-        self.logfile = os.path.join(BASEDIR, "Server-Log-" + str(int(self.last_time)) + ".txt")
+        self.logfile = None
         self.logtext = ""
 
     def handle(self, input_frame):
         self.t0 = time.time()
+
+        extras = cognitive_engine.unpack_extras(openrtist_pb2.Extras, input_frame)
+        if extras.style == "?":
+            if not self.new_client_request:
+                self.new_client_request = True
+                self.count = 0
+                self.logtext = ""
+                self.logfile = os.path.join(BASEDIR, "Server-Log-" + str(int(self.t0)) + ".txt")
+        else:
+            self.new_client_request = False
+
         result_wrapper = super().handle(input_frame)
         self.t3 = time.time()
 
@@ -37,6 +54,8 @@ class TimingEngine(OpenrtistEngine):
             with open(self.logfile, "a") as logfile:
                 logfile.write(self.logtext)
             print("Log written to file.")
+            self.count = 0
+            self.logtext = ""
         # print("infer-time(): {:.2f} ms\tgpu-time: {:.2f} ms\tdiff = {:.4f}".format(infer, self.gpu_time, infer - self.gpu_time))
         self.last_time = self.t3
 
