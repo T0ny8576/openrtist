@@ -33,6 +33,7 @@ class TimingClient(WebsocketClient):
                     logfile.write(self._logtext)
                 print("Log written to file.")
                 self._logtext = ""
+                os.abort()  # stop application
 
     async def _producer_handler(self, producer, source_name):
         await self._welcome_event.wait()
